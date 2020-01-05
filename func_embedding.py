@@ -3,6 +3,7 @@ import scipy as sp
 import idw
 import hit_n_run
 import random_projection
+import mat_sqrt
 
 #TODO: Determine a good value for this hyperparameter
 MAXIMAL_DIMENSION=30
@@ -13,9 +14,12 @@ MONTE_CARLO_ITERS=10
 #return the embedding matrix for ze functions
 def get_embedding_matrix(func_pairs, X, iters=MONTE_CARLO_ITERS, dim_max=MAXIMAL_DIMENSION):
     dot_product_mat = get_dot_product_matrix(func_pairs, X, iters)
+
     #Extract matrix square root of the dot product matrix
-    full_embedding_mat = sp.linalg.sqrtm(dot_product_mat)
-    full_embedding_mat = np.real(full_embedding_mat)
+    #That is, the dot product matrix is A^T A, but we want to recover A
+    #If A^T A = U \Sigma V^T, then V \sqrt(\Sigma) V^T
+    full_embedding_mat = mat_sqrt.sqrtm(dot_product_mat)
+
     #Project down to a smaller dimensionality
     reduced_embedding_mat = random_projection.reduce_projection_dimension(full_embedding_mat, dim_max) 
 

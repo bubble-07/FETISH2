@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import scipy.optimize
 import matplotlib.pyplot as plt
+from dimension_reduction import get_rank_reduction_matrix
 import idw
 import time
 import glpk
@@ -23,6 +24,7 @@ def hit_and_run_iter(X, z, v):
     minimal_a = -res_two[N]
 
     picked_a = np.random.uniform(low=minimal_a, high=maximal_a)
+
     return z + v * picked_a
 
 #Implements the method from
@@ -280,11 +282,29 @@ def schmancy_hit_and_run_a_while(X, n):
     return np.array(iters)
 
 def hit_and_run_a_while(X, n):
+
+    #TODO: Also port this over to the schmancy version
+    #Degenerate ranks are what's causing it to get stuck
+    D, N = X.shape 
+    if (N == 1):
+        #Special case, take out ze trash
+        vec = X[:, 0].reshape(-1)
+        return np.array([vec] * n)
+    
+    center = X[:, 0].reshape((-1, 1))
+    X_centered = X - center
+    center_flat = center.reshape(-1)
+
+    Q = get_rank_reduction_matrix(X_centered)
+    X_transformed = np.matmul(Q, X_centered)
+    Q_t = np.transpose(Q)
+
     iters = []
-    z = get_dirichlet_random(X)
+    z = get_dirichlet_random(X_transformed)
     while len(iters) < n:
-        z = uniform_hit_and_run_step(X, z)
-        iters.append(z)
+        z = uniform_hit_and_run_step(X_transformed, z)
+        x = np.matmul(Q_t, z) + center_flat
+        iters.append(x)
     return np.array(iters)
 
 '''

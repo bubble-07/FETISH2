@@ -21,7 +21,7 @@ def idw_interpolate(sample_points, known_inputs, known_outputs):
     #Normalize each row
     idw_weight_mat = pow_dist_mat / np.sum(pow_dist_mat, axis=1, keepdims=True)
     #Set all zero-distance entries to 1.0
-    idw_weight_mat[dist_mat!=0] = 1.0
+    idw_weight_mat[dist_mat==0] = 1.0
     #Normalize again
     idw_weight_mat = idw_weight_mat / np.sum(idw_weight_mat, axis=1, keepdims=True)
 

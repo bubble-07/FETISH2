@@ -258,6 +258,7 @@ fill_func_t = FuncType(scalar_t, vector_t)
 
 interpreter_state = InterpreterState()
 
+'''
 interpreter_state.add_type(map_func_t)
 interpreter_state.add_type(fill_func_t)
 interpreter_state.add_type(reduce_func_t)
@@ -286,6 +287,14 @@ for n in [1, DIM]:
             compose_type = get_compose_type(n, m, p)
             interpreter_state.add_type(compose_type)
             interpreter_state.add_term(compose_type, ComposeImpl(n, m, p))
+'''
+
+#Add in constant functions
+for n in [1, DIM]:
+    for m in [1, DIM]:
+        const_func_type = FuncType(VecType(n), FuncType(VecType(m), VecType(n)))
+        interpreter_state.add_type(const_func_type)
+        interpreter_state.add_term(const_func_type, ConstImpl(n, m))
 
 '''
 print str(interpreter_state)
@@ -322,5 +331,5 @@ print str(interpreter_state)
 
 '''
 interpreter_state.ensure_every_application_table_row_filled()
-#print str(interpreter_state)
+print str(interpreter_state)
 print str(RecommenderState(interpreter_state))

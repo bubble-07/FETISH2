@@ -40,6 +40,25 @@ class MapImpl(FuncImpl):
             result[i] = result_term.get()[0]
         return VectorTerm(result)
 
+class ConstImpl(FuncImpl):
+    def __init__(self, n, m):
+        self.n = n
+        self.m = m
+    def required_arg_types(self):
+        return [VecType(self.n), VecType(self.m)]
+    def ret_type(self):
+        return VecType(self.n)
+    def __eq__(self, other):
+        return (isinstance(other, ConstImpl) and
+                self.n == other.n and
+                self.m == other.m)
+    def __hash__(self):
+        return 31 * self.n + self.m
+    def __str__(self):
+        return "Const[" + str(self.n) + ", " + str(self.m) + "]"
+    def evaluate(self, interpreter_state, args):
+        return args[0]
+
 class ComposeImpl(FuncImpl):
     def __init__(self, n, m, p):
         self.n = n

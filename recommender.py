@@ -89,5 +89,4 @@ class RecommenderState(object):
             X = self.get_embed_matrix(arg_type) #Used for convex hull evaluation
             X = np.transpose(X)
             embedding_matrix = get_embedding_matrix(func_pairs, X)
-            embedding_matrix = np.transpose(embedding_matrix)
             self.embeddings[kind] = embedding_matrix
