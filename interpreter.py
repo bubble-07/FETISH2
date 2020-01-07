@@ -96,6 +96,14 @@ class ApplicationTable(object):
         for key in self.table:
             result += "\t" + str(key) + ": " + str(self.table[key]) + "\n"
         return result
+
+    #Returns a generator of index triples (func_ind, arg_ind, ret_ind)
+    def get_index_triple_generator(self):
+        for func_ind in self.table:
+            for arg_ind in self.table[func_ind]:
+                ret_ind = self.table[func_ind][arg_ind]
+                yield (func_ind, arg_ind, ret_ind)
+
     def get_num_in_row(self, func_ind):
         if (not (func_ind in self.table)):
             return 0
