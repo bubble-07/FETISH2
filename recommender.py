@@ -4,6 +4,7 @@ from type_ids import *
 from toposort import toposort_flatten
 from func_embedding import get_embedding_matrix
 import function_step
+from vptree import VpTree
 
 #Exponent to use for idw in randomized "pull-from" table choice
 TABLE_CHOICE_EXPONENT=1
@@ -16,7 +17,10 @@ TABLE_CHOICE_EXPONENT=1
 class RecommenderState(object):
     def __init__(self, interpreter_state):
         self.interpreter_state = interpreter_state
+        #Dictionary from types to matrices of terms' embeddings
         self.embeddings = {}
+        #Dictionary from type, function term index to vantage point tree for known func args 
+        self.vptrees = {}
         self.init_embeddings()
     def __str__(self):
         result = "Embeddings: \n"
@@ -163,6 +167,9 @@ class RecommenderState(object):
             if isinstance(kind, VecType):
                 #Don't need to derive embeddings for vector types
                 continue
+            #Instantiate the vp tree dict for the kind
+            self.vptrees[kind] = {}
+
             #Derive the embedding for the type 
             arg_type = kind.arg_type
             ret_type = kind.ret_type
@@ -183,9 +190,14 @@ class RecommenderState(object):
                 ret_embeds = np.vstack(ret_embeds)
                 func_pair = (arg_embeds, ret_embeds)
                 func_pairs.append(func_pair)
+                #Func pairs were updated, but we also need to compute the vantage point
+                #tree for all of the arguments in arg_embeds
+                tree = VpTree(arg_embeds)
+                self.vptrees[kind][func_ind] = tree
+
             #Now that we have the embedded input, output pairs, 
             #we can get the embedding matrix for this type space
             X = self.get_embed_matrix(arg_type) #Used for convex hull evaluation
             X = np.transpose(X)
-            embedding_matrix = get_embedding_matrix(func_pairs, X)
+            embedding_matrix = get_embedding_matrix(func_pairs, X, self.vptrees[kind])
             self.embeddings[kind] = embedding_matrix
