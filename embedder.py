@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 import random
 from type_ids import *
 from toposort import toposort_flatten
@@ -9,12 +10,9 @@ from vptree import VpTree
 #Exponent to use for idw in randomized "pull-from" table choice
 TABLE_CHOICE_EXPONENT=1
 
-#Contains the actual meat of this thing: the recommendation
-#engine which determines which expressions to evaluate
-
 #Responsible for maintaining information about all function
 #embeddings based on some associated interpreter state
-class RecommenderState(object):
+class EmbedderState(object):
     def __init__(self, interpreter_state):
         self.interpreter_state = interpreter_state
         #Dictionary from types to matrices of terms' embeddings
@@ -56,6 +54,13 @@ class RecommenderState(object):
                 result.append(space.get(ind).get())
             return np.vstack(result)
         return self.embeddings[kind]
+
+    #Gets the diameter of the embedding space for the given kind
+    def get_diameter(self, kind):
+        embed_matrix = self.get_embed_matrix(kind)
+        dist_mat = sp.spatial.distance_matrix(embed_matrix, embed_matrix)
+        #Return the str8 up max distance
+        return np.amax(dist_mat)
 
     #Get a pointer to the term of a given kind which is closest to the specified
     #embedding point
@@ -133,6 +138,7 @@ class RecommenderState(object):
     #because if we're not careful, we could miss entirely. Hence the need
     #for interpolation
     def get_embedding_along_func_dimension(self, func_type, arg_ptr):
+        func_vptrees = self.vptrees[func_type]
         arg_type = func_type.arg_type
         ret_type = func_type.ret_type
         func_space = self.interpreter_state.type_spaces[func_type]
@@ -144,7 +150,7 @@ class RecommenderState(object):
             func_ptr = TermPointer(func_space, func_ind)
             embed_pair = get_embedding_along_arg_dimension(func_type, func_ptr)
             func_pairs.append(embed_pair)
-        outputs = function_step.impute_input_slice(arg_embedding, func_pairs)
+        outputs = function_step.impute_input_slice(arg_embedding, func_pairs, func_vptrees)
 
         #Great, now we just need to compile the inputs (which are functions, lel)
         inputs = self.get_embed_matrix(func_type)

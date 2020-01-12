@@ -2,7 +2,7 @@ import numpy as np
 from type_ids import VecType, FuncType
 from func_impls import *
 from basic_terms import *
-from recommender import *
+from embedder import *
 
 #Class containing all evaluated terms of a given
 #type [indexed, searchable like a map or a set]
@@ -338,4 +338,4 @@ print str(interpreter_state)
 '''
 interpreter_state.ensure_every_application_table_row_filled()
 print str(interpreter_state)
-print str(RecommenderState(interpreter_state))
+print str(EmbedderState(interpreter_state))
