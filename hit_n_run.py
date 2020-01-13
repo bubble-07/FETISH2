@@ -299,11 +299,19 @@ def hit_and_run_a_while(X, n):
     X_transformed = np.matmul(Q, X_centered)
     Q_t = np.transpose(Q)
 
+    x_mins = np.amin(X_transformed, axis=1, keepdims=True)
+    x_maxes = np.amax(X_transformed, axis=1, keepdims=True)
+    x_spreads = x_maxes - x_mins
+    
+    X_scaled = X_transformed / x_spreads
+
+    X_reduced = extrema(X_scaled)
+
     iters = []
-    z = get_dirichlet_random(X_transformed)
+    z = get_dirichlet_random(X_scaled)
     while len(iters) < n:
-        z = uniform_hit_and_run_step(X_transformed, z)
-        x = np.matmul(Q_t, z) + center_flat
+        z = uniform_hit_and_run_step(X_scaled, z)
+        x = np.matmul(Q_t, z * x_spreads.reshape(-1)) + center_flat
         iters.append(x)
     return np.array(iters)
 

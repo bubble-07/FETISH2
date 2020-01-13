@@ -3,6 +3,8 @@ from type_ids import VecType, FuncType
 from func_impls import *
 from basic_terms import *
 from embedder import *
+from interpreter_support import *
+from recommender import *
 
 #Class containing all evaluated terms of a given
 #type [indexed, searchable like a map or a set]
@@ -39,46 +41,6 @@ class TypeSpace(object):
     def get(self, ind):
         return self.terms[ind]
 
-#Reference to a given typespace, index pair
-class TermPointer(object):
-    def __init__(self, type_space, index):
-        self.type_space = type_space
-        self.index = index
-    def get_index(self):
-        return self.index
-    def get_term(self):
-        return self.type_space.get(self.index)
-    def get_type(self):
-        return self.type_space.my_type
-    def __str__(self):
-        return "Term(" + str(self.index)  + "," + str(self.type_space.my_type) + ")"
-    def __eq__(self, other):
-        return (isinstance(other, TermPointer) and 
-                self.type_space == other.type_space and
-                self.index == other.index)
-    def __hash__(self):
-        return hash(self.type_space) * 31 + hash(self.index)
-
-#(pseudo-)Term which is composed of the application of one term to another
-#Strictly speaking, these should never be stored in any of the type spaces,
-#since they are actually not fully evaluated terms
-#You probably want "PartiallyAppliedTerm"
-class TermApplication(object):
-    def __init__(self, func_ptr, arg_ptr):
-        func_type = func_ptr.get_type()
-        arg_type = arg_ptr.get_type()
-        if (not (func_type.can_apply_to(arg_type))):
-            raise ValueError("Cannot apply " + str(func_type) + " to " + str(arg_type))
-        self.func_ptr = func_ptr
-        self.arg_ptr = arg_ptr
-    def __eq__(self, other):
-        return (isinstance(other, TermApplication) and
-                self.func_ptr == other.func_ptr and
-                self.arg_ptr == other.arg_ptr)
-    def __hash__(self):
-        return 31 * hash(self.func_ptr) + hash(self.arg_ptr)
-    def __str__(self):
-        return "[" + str(self.func_ptr) + " " + str(self.arg_ptr) + "]"
 #Contains [sparse] memoized data about applications of functions f : T -> S
 #to arguments of type t
 class ApplicationTable(object):
@@ -220,6 +182,12 @@ class InterpreterState(object):
             result += str(self.application_tables[kind]) + "\n"
         return result
 
+    #Gets all registered function types with the given return type
+    def get_funcs_returning(self, ret_type):
+        if (ret_type not in self.ret_type_lookup):
+            return set([])
+        return self.ret_type_lookup[ret_type]
+
     def add_ret_type_lookup(self, func_type):
         if (not (func_type.ret_type in self.ret_type_lookup)):
             self.ret_type_lookup[func_type.ret_type] = set([])
@@ -241,14 +209,19 @@ class InterpreterState(object):
             self.add_type(elem_type.arg_type)
             self.add_type(elem_type.ret_type)
 
-    def blind_apply(self, func_val, func_type, arg_val, arg_type):
+    def apply_ptrs(self, func_ptr, arg_ptr):
+        func_type = func_ptr.get_type()
         func_table = self.get_application_table(func_type)
+        term_app = TermApplication(func_ptr, arg_ptr)
+        result_ptr = func_table.evaluate(self, term_app)
+        return result_ptr
+
+    def blind_apply(self, func_val, func_type, arg_val, arg_type):
         func_space = self.get_type_space(func_type)
         arg_space = self.get_type_space(arg_type)
         func_ptr = func_space.get_pointer(func_val)
         arg_ptr = arg_space.get_pointer(arg_val)
-        term_app = TermApplication(func_ptr, arg_ptr)
-        result_ptr = func_table.evaluate(self, term_app)
+        result_ptr = self.apply_ptrs(func_ptr, arg_ptr)
         return result_ptr.get_term()
 
 DIM = 10
@@ -272,6 +245,9 @@ interpreter_state.add_type(reduce_func_t)
 map_ptr = interpreter_state.add_term(map_func_t, MapImpl(DIM))
 fill_ptr = interpreter_state.add_term(fill_func_t, FillImpl(DIM))
 reduce_ptr = interpreter_state.add_term(reduce_func_t, ReduceImpl(DIM))
+head_ptr = interpreter_state.add_term(vector_to_scalar_func_t, HeadImpl(DIM))
+rotate_ptr = interpreter_state.add_term(unary_vec_func_t, RotateImpl(DIM))
+
 
 #Add all element-wise binary operators
 for n, kind in [(1, binary_scalar_func_t), (DIM, binary_vec_func_t)]:
@@ -338,4 +314,23 @@ print str(interpreter_state)
 '''
 interpreter_state.ensure_every_application_table_row_filled()
 print str(interpreter_state)
-print str(EmbedderState(interpreter_state))
+embedder_state = EmbedderState(interpreter_state)
+embedder_state.refresh()
+print str(embedder_state)
+recommender_state = RecommenderState(embedder_state)
+
+target_kind = FuncType(VecType(1), VecType(1))
+scalar_space = interpreter_state.get_type_space(VecType(1))
+
+zero_ind = scalar_space.add(VectorTerm(np.array([0])))
+two_ind = scalar_space.add(VectorTerm(np.array([2])))
+five_ind = scalar_space.add(VectorTerm(np.array([5])))
+
+target_row = {}
+target_row[zero_ind] = zero_ind
+target_row[two_ind] = five_ind
+
+embedder_state.add_target(target_kind, target_row)
+
+for i in range(100):
+    recommender_state.step(target_kind, 0)

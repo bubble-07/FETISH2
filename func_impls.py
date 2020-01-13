@@ -27,7 +27,7 @@ class MapImpl(FuncImpl):
     def __hash__(self):
         return self.n
     def __str__(self):
-        return "Map[" + str(self.n) + "]"
+        return "Map"
     def evaluate(self, interpreter_state, args):
         func_term = args[0]
         func_type = FuncType(VecType(1), VecType(1))
@@ -55,7 +55,7 @@ class ConstImpl(FuncImpl):
     def __hash__(self):
         return 31 * self.n + self.m
     def __str__(self):
-        return "Const[" + str(self.n) + ", " + str(self.m) + "]"
+        return "Const" 
     def evaluate(self, interpreter_state, args):
         return args[0]
 
@@ -78,7 +78,7 @@ class ComposeImpl(FuncImpl):
     def __hash__(self):
         return 31 * 31 * self.n + 31 * self.m + self.p
     def __str__(self):
-        return "Compose[" + str(self.n) + "," + str(self.m) + "," + str(self.p) + "]"
+        return "Compose"
     def evaluate(self, interpreter_state, args):
         first_func = args[1]
         first_func_type = FuncType(VecType(self.n), VecType(self.m))
@@ -105,10 +105,46 @@ class FillImpl(FuncImpl):
     def __hash__(self):
         return self.n
     def __str__(self):
-        return "Fill[" + str(self.n) + "]"
+        return "Fill"
     def evaluate(self, interpreter_state, args):
         arg_value = args[0].get()[0]
         return VectorTerm(np.full(self.n, arg_value))
+
+class HeadImpl(FuncImpl):
+    def __init__(self, n):
+        self.n = n
+    def required_arg_types(self):
+        return [VecType(self.n)]
+    def ret_type(self):
+        return VecType(1)
+    def __eq__(self, other):
+        return (isinstance(other, HeadImpl) and self.n == other.n)
+    def __hash__(self):
+        return self.n
+    def __str__(self):
+        return "Head"
+    def evaluate(self, interpreter_state, args):
+        arg_value = args[0].get()[0]
+        return VectorTerm(np.array([arg_value]))
+
+class RotateImpl(FuncImpl):
+    def __init__(self, n):
+        self.n = n
+    def required_arg_types(self):
+        return [VecType(self.n)]
+    def ret_type(self):
+        return VecType(self.n)
+    def __eq__(self, other):
+        return (isintance(other, RotateImpl) and self.n == other.n)
+    def __hash__(self):
+        return self.n
+    def __str__(self):
+        return "Rotate"
+    def evaluate(self, interpreter_state, args):
+        vec = args[0].get()
+        vec_end = vec[1:]
+        vec = np.concatenate((vec_end, np.array([vec[0]])))
+        return VectorTerm(vec)
 
 class ReduceImpl(FuncImpl):
     def __init__(self, n):
@@ -123,7 +159,7 @@ class ReduceImpl(FuncImpl):
     def __hash__(self):
         return self.n
     def __str__(self):
-        return "Reduce[" + str(self.n) + "]"
+        return "Reduce"
     def evaluate(self, interpreter_state, args):
         func_val = args[0]
         accum_val = args[1]
@@ -153,7 +189,7 @@ class BinaryFuncImpl(FuncImpl):
     def short_name(self):
         raise NotImplemented
     def __str__(self):
-        return self.short_name() + "[" + str(self.n) + "]"
+        return self.short_name()
     def evaluate(self, interpreter_state, args):
         return VectorTerm(self.impl(args[0].get(), args[1].get()))
     def impl(self, x, y):
@@ -187,9 +223,12 @@ class DivImpl(BinaryFuncImpl):
     def __init__(self, n):
         super(DivImpl, self).__init__(n)
     def impl(self, x, y):
-        result = x / y
+        div_by = y
+        div_by[y == 0] = 1.0
+        result = x / div_by
         result[np.isinf(result)] = 0.0
         result[np.isnan(result)] = 0.0
+        print result
         return result
     def short_name(self):
         return "/"

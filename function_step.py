@@ -18,9 +18,11 @@ def impute_input_slice(point_in, func_pairs, vptrees, use_idw=False):
             output_on_samples = idw.idw_interpolate(samp_points, input_points, output_points)
             result.append(output_on_samples.reshape((-1)))
     else:
+        samp_points = samp_points.reshape((1, -1))
         func_ind = 0
         for input_points, output_points in func_pairs:
             vptree = vptrees[func_ind]
             output_on_samples = nearestneighbor.interpolate(vptree, samp_points, input_points, output_points)
             result.append(output_on_samples.reshape((-1)))
+            func_ind += 1
     return np.vstack(result)

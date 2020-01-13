@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sp
+import traceback
 
 #Given sample points [Nxd] and some known inputs [m x d] and outputs [m x d_two],
 #return the [N x d_two] array which interpolates the value of a function
@@ -34,8 +35,15 @@ def get_idw_weights(X, i=None, p=None):
     N, M = X.shape
     if p is None:
         p = M + 1
+
     norms = np.linalg.norm(X, axis=1)
+    max_norm = np.amax(norms)
+    norms = norms / max_norm
     div_norms = np.power(norms, -p, where=norms!=0)
+
+    if (max_norm == 0):
+        traceback.print_stack()
+        print X
 
     if i is None:
         div_norms[norms==0] = 0.0
