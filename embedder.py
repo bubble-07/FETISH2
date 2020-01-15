@@ -29,6 +29,8 @@ class EmbedderState(object):
         #Intended to be used for "target functions"
         self.target_functions = {}
 
+        self.target_embeddings = {}
+
     #Given a function type and a mapping from arg indices to ret indices,
     #add it to our target functions list [will be considered in the generation of embeddings,
     #but will not pollute extra garbo in actual application tables]
@@ -57,6 +59,7 @@ class EmbedderState(object):
 
     def refresh(self):
         self.embeddings = {}
+        self.target_embeddings = {}
         self.vptrees = {}
         self.init_embeddings()
 
@@ -89,9 +92,8 @@ class EmbedderState(object):
         return embedding[ind]
 
     def embed_target_index(self, target_ind, kind):
-        space = self.interpreter_state.get_type_space(kind)
-        lookup_ind = len(space.terms) + target_ind
-        return self.embed_index(lookup_ind, kind)
+        embedding_mat = self.target_embeddings[kind]
+        return embedding_mat[target_ind]
 
     #Gets the full matrix of embeddings for a given kind
     def get_embed_matrix(self, kind):
@@ -273,4 +275,9 @@ class EmbedderState(object):
             diam = diameter(embedding_matrix)
             if (diam != 0.0):
                 embedding_matrix = embedding_matrix / diameter(embedding_matrix)
+            #Not done yet -- need to split it out to embeddings and target_embeddings
+            if (len(space.terms) < embedding_matrix.shape[0]):
+                target_embedding_matrix = embedding_matrix[len(space.terms):]
+                self.target_embeddings[kind] = target_embedding_matrix
+            embedding_matrix = embedding_matrix[:len(space.terms)]
             self.embeddings[kind] = embedding_matrix

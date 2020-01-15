@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import random
 from type_ids import *
+from basic_terms import *
 import idw_sample
 import secant
 from interpreter_support import *
@@ -15,10 +16,11 @@ CONTINUE_CHOICE_EXPONENT=1.0
 #Multiplier which determines how much continuation we seek
 CONTINUE_MULTIPLIER=1.0
 
-#Exponent to sue for idw in randomized arg/function direction choice
-ARG_FUNC_EXPONENT=1.0
+#Exponent to use for idw in randomized arg/function direction choice
+ARG_FUNC_EXPONENT=0.1
 
-#Inductively defined binary tree whose leaves are term pointers.
+#Inductively defined binary tree whose leaves are term pointers
+#or numpy vectors [for constants which have yet to be added]
 #Unlike a TermApplication, which is just a pairing of term pointers.
 class SyntaxTree(object):
     def __init__(self, func_subtree, arg_subtree):
@@ -47,6 +49,11 @@ class SyntaxTree(object):
         arg_eval = self.arg_subtree
         if (isinstance(arg_eval, SyntaxTree)):
             arg_eval = arg_eval.evaluate(interpreter_state)
+        if (isinstance(arg_eval, np.ndarray)):
+            #Gotta embed a new constant
+            arg_type = VecType(arg_eval.shape[0])
+            arg_space = interpreter_state.type_spaces[arg_type]
+            arg_eval = arg_space.get_pointer(VectorTerm(arg_eval))
         #Both func_eval and arg_eval now contain pointers, so eval those
         result_ptr = interpreter_state.apply_ptrs(func_eval, arg_eval)
         return result_ptr
@@ -77,6 +84,10 @@ class RecommenderState(object):
     #perform one optimization iteration to try to return a SyntaxTree
     #of a term which is closer to the target
     def get_suggestion(self, target_type, target_embedding, force_continue=False):
+        #Special case: if the target type is a vector type, then we know exactly what to suggest
+        if (isinstance(target_type, VecType)):
+            return target_embedding
+
         #First, pick the function application table we'd use to pull a term from [if we're going to do that]
         candidate_func_types = list(self.interpreter_state.get_funcs_returning(target_type))
         #Special case: if we have no candidate func types, return the closest term
@@ -102,6 +113,8 @@ class RecommenderState(object):
         #by comparing the chosen closest term application to all available terms
         term_dist, term_ptr = self.embedder_state.get_closest_term_ptr(target_type, target_embedding)
 
+        print "Closest term: ", term_ptr.get_term()
+
         dists = np.array([term_dist * CONTINUE_MULTIPLIER, term_app_dist])
         continue_choice = idw_sample.idw_sample_from_dists(dists, CONTINUE_CHOICE_EXPONENT)
         should_continue = (continue_choice == 1) or force_continue
@@ -125,7 +138,6 @@ class RecommenderState(object):
             if (funcs_in.shape[0] < 2):
                 new_arg_term = self.get_suggestion(arg_type, proposed_arg)
                 new_application = SyntaxTree(func_ptr, new_arg_term)
-                print new_application
                 return new_application
 
             proposed_func = secant.get_new_input_to_try_linear(funcs_in, funcs_out, target_embedding)
@@ -155,7 +167,6 @@ class RecommenderState(object):
                 new_func_term = self.get_suggestion(func_type, proposed_func)
                 new_application = SyntaxTree(new_func_term, arg_ptr)
 
-            print new_application
             #Great, now we just need to return our new syntax tree
             return new_application
 

@@ -7,8 +7,8 @@ import mat_sqrt
 import nearestneighbor
 
 #TODO: Determine a good value for this hyperparameter
-MAXIMAL_DIMENSION=30
-MONTE_CARLO_ITERS=10
+MAXIMAL_DIMENSION=20
+MONTE_CARLO_ITERS=100
 
 #Given a list of [embedded input points, embedded output points] function pairs
 #and a [dxN] matrix X whose convex hull in the input we will compute dot products over,

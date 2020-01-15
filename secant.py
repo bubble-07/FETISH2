@@ -27,6 +27,7 @@ def get_new_input_to_try_linear(X, Y, target):
     shifted_target = target - y
     v, _, _, _ = regression.linear_least_squares(np.transpose(A), shifted_target)
     v_norm = np.linalg.norm(v)
+    print "Moving: ", v_norm
     r_scale = v_norm * params.SIGMA
     r = np.random.normal(loc=0.0, scale=r_scale, size=v.shape)
 

@@ -156,9 +156,9 @@ class InterpreterState(object):
             if isinstance(kind, VecType):
                 space = self.type_spaces[kind]
                 if (len(space.terms) < 2):
-                    space.add(VectorTerm(np.ones(kind.n)))
+                    space.add(VectorTerm(2 * np.ones(kind.n)))
                 if (len(space.terms) < 2):
-                    space.add(VectorTerm(-np.ones(kind.n)))
+                    space.add(VectorTerm(-2.0 * np.ones(kind.n)))
         #Now, keep trying to derive new terms
         made_progress = True
         while made_progress:
@@ -168,8 +168,9 @@ class InterpreterState(object):
                 arg_type = table.arg_space.my_type
                 for i in range(len(table.func_space.terms)):
                     func_term = table.func_space.terms[i]
-                    if (table.get_num_in_row(i) < 2):
-                        for j in range(min(2, len(table.arg_space.terms))):
+                    if (table.get_num_in_row(i) < 2 and len(table.arg_space.terms) > 0):
+                        js = list(np.random.choice(len(table.arg_space.terms), size=(2,)))
+                        for j in js:
                             arg_term = table.arg_space.terms[j]
                             self.blind_apply(func_term, func_type, arg_term, arg_type)
                             made_progress = True
@@ -325,12 +326,17 @@ scalar_space = interpreter_state.get_type_space(VecType(1))
 zero_ind = scalar_space.add(VectorTerm(np.array([0])))
 two_ind = scalar_space.add(VectorTerm(np.array([2])))
 five_ind = scalar_space.add(VectorTerm(np.array([5])))
+four_ind = scalar_space.add(VectorTerm(np.array([4])))
+ten_ind = scalar_space.add(VectorTerm(np.array([10])))
 
 target_row = {}
 target_row[zero_ind] = zero_ind
 target_row[two_ind] = five_ind
+target_row[four_ind] = ten_ind
 
 embedder_state.add_target(target_kind, target_row)
 
 for i in range(100):
     recommender_state.step(target_kind, 0)
+
+print str(interpreter_state)
