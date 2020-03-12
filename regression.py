@@ -5,7 +5,7 @@ import scipy as sp
 #an nxt output matrix Y [for t the output dimension], 
 #a n x (t x t) array of output inverse-covariance matrices [one for each sample]
 #, a prior mean [2D matrix with dims kxt], 
-#and a prior inverse covariance \Sigma_0 of dims
+#and a prior covariance \Sigma_0 of dims
 #kxt x kxt, return the posterior distribution over the model parameter B
 #for the model Y=XB, in terms of its mean [a kxt matrix], and covariance
 #[a kxt x kxt tensor]

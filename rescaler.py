@@ -1,5 +1,11 @@
 import numpy as np
 
+def get_identity(k):
+    return get_uniform_scaling(k, 1.0)
+
+def get_uniform_scaling(k, scalefac):
+    return np.ones(k) * scalefac
+
 class AffineRescaler(object):
     def __init__(self, M, c):
         self.M = M

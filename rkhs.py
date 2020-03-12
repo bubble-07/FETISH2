@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 import math
+import params
 
 #Represents a [1-dimensional] Gaussian RKHS which is
 #given internally by a unit-variance kernel, but possibly
@@ -10,6 +11,7 @@ class GaussianKernelSpace(object):
         self.X = X
         self.rescaler = rescaler
         self.K = self.init_kernel_space(X, rescaler)
+        self.K_inv = np.linalg.pinv(K)
 
     #Given a vector v which is in the same space as
     #the original X which was passed in, return
@@ -59,7 +61,7 @@ class GaussianKernelSpace(object):
 
         self.scaling_factor = math.sqrt((1.0 / (2.0 * math.PI)) ** k)
 
-        return scaling_factor * exp_mat
+        return self.scaling_factor * exp_mat
 
     def get_dimension(self):
         return self.K.shape[0]
@@ -72,13 +74,67 @@ class GaussianKernelSpace(object):
 #kernel space on it, and whose codomain is some
 #finite-dimensional vector space
 class KernelSumFunctionSpace(object):
-    def __init__(self, kernel_space, out_dim):
+    def __init__(self, kernel_space, out_space):
         self.kernel_space = kernel_space
-        self.out_dim = out_dim
+        self.out_space = out_space
+        self.out_dim = out_space.get_dimension()
     def get_dimension(self):
         return self.kernel_space.get_dimension() * self.out_dim
     def get_kernel_space(self):
         return self.kernel_space
+    def get_output_space(self):
+        return self.out_space
+
+    #Gets the prior covariance with dims (t * k) x (t * k) which
+    #is given by \Sigma_Y o (1/(an) K^-1), where \Sigma_Y
+    #is the txt covariance matrix for the prior on the output space
+    def get_prior_covariance(self):
+        k = self.kernel_space.get_dimension()
+        t = self.out_dim
+        n, _ = self.kernel_space.K.shape
+
+        alpha = params.KERNEL_PRIOR_STRENGTH
+        scale_factor = 1.0 / (n * alpha)
+        scaled_K_inv = self.kernel_space.K_inv
+
+        out_prior_covariance = self.out_space.get_prior_covariance()  
+
+        kroned = np.kron(out_prior_covariance, scaled_K_inv) #TODO: is this the right ordering to work?
+        return kroned
+
+    #Same as above, but shape t x k x t x k
+    def get_prior_covariance_tensor(self):
+        k = self.kernel_space.get_dimension()
+        t = self.out_dim
+
+        kernel_tensor = get_kernel_tensor()
+        return np.reshape(kernel_tensor, (t, k, t, k))
+        
+    def get_prior_mean(self):
+        return np.zeros(self.get_dimension())
+
+    #Convert from a KernelSumFunction to a 1d t * k vector
+    def func_to_vec(self, func):
+        return np.reshape(func.coef_matrix, -1)
+    
+    #Convert from a 1d t * k vector to a KernelSumFunction
+    def vec_to_func(self, vec):
+        k = self.kernel_space.get_dimension()
+        t = self.out_dim
+        coef_mat = np.reshape(vec, (t, k))
+        return KernelSumFunction(self, coef_mat)
+    
+    #Convert from a (t * k) x (t * k) matrix to a (txk)x(txk) tensor
+    def mat_to_tensor(self, mat):
+        k = self.kernel_space.get_dimension()
+        t = self.out_dim
+        return np.reshape(mat, (t, k, t, k))
+
+    #Convert from a (txk)x(txk) tensor to a (t * k) x (t * k) matrix
+    def tensor_to_mat(self, tensor):
+        k = self.kernel_space.get_dimension()
+        t = self.out_dim
+        return np.reshape(tensor, (t * k, t * k))
 
 #Representation of a [multi-output] function
 #which is expressible as a sum of kernel functions times basis elements
@@ -103,6 +159,7 @@ class KernelSumFunction(object):
     def get_jacobian(self, vec):
         #This is of size k x r
         kernel_jacobian = self.kernel_space.kernel_derivative(vec)
+
 
         return np.matmul(self.coef_matrix, kernel_jacobian)
 
