@@ -49,6 +49,7 @@ class ApplicationTable(object):
         self.arg_space = arg_space
         self.result_space = result_space
         self.table = {}
+        self.table_inv = {} #The "inverse" of table [from result inds to (func, arg) ind pairs]
     def __eq__(self, other):
         return (isinstance(other, ApplicationTable) and self.func_space == other.func_space)
     def __hash__(self):
@@ -70,10 +71,31 @@ class ApplicationTable(object):
         if (not (func_ind in self.table)):
             return 0
         return len(self.table[func_ind])
+
     def link(self, func_ind, arg_ind, result_ind):
         if (not (func_ind in self.table)):
             self.table[func_ind] = {}
         self.table[func_ind][arg_ind] = result_ind
+
+        if (not (result_ind in self.table_inv)):
+            self.table_inv[result_ind] = []
+        self.table_inv[result_ind].append((func_ind, arg_ind))
+
+    #Returns a list of all known applications in this table which
+    #yield the desired return pointer
+    def get_term_applications_yielding(self, result_ptr):
+        result_ind = result_ptr.get_index()
+        if (not (result_ind in table_inv)):
+            return []
+        raw_result = self.table_inv[result_ind]
+        result = []
+        for func_ind, arg_ind in raw_result:
+            func_ptr = TermPointer(self.func_space, func_ind)
+            arg_ptr = TermPointer(self.arg_space, arg_ind)
+            application = TermApplication(func_ptr, arg_ptr)
+            result.append(application)
+        return result
+
     #Given a TermApplication, determine whether we have data on the term
     def has_computed(self, term_app):
         func_index = term_app.func_ptr.get_index()
@@ -188,6 +210,15 @@ class InterpreterState(object):
         if (ret_type not in self.ret_type_lookup):
             return set([])
         return self.ret_type_lookup[ret_type]
+
+    #Gets all known terms applications returning the given result pointer
+    def get_term_applications_yielding(self, result_ptr):
+        func_types = self.get_funcs_returning(result_ptr.get_type())
+        results = []
+        for func_type in func_types:
+            table = self.application_tables[func_type]
+            results = results + table.get_term_applications_yielding(result_ptr)
+        return results
 
     def add_ret_type_lookup(self, func_type):
         if (not (func_type.ret_type in self.ret_type_lookup)):

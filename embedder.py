@@ -24,9 +24,6 @@ class EmbedderState(object):
         #Dictionary from types to space definitions
         self.spaces = {}
 
-        #Dictionary from types to kernelized space embeddings of their terms
-        self.kernel_spaces = {}
-
     def refresh(self):
         self.means = {}
         self.covariances = {}
@@ -110,6 +107,7 @@ class EmbedderState(object):
     def update_embeddings(self):
         updated_means = {}
         updated_covariances = {}
+        kernel_spaces = {}
 
         #To construct embeddings, we need to topologically sort
         #all types
@@ -135,16 +133,17 @@ class EmbedderState(object):
             space = self.interpreter_state.get_type_space(kind)
             table = self.interpreter_state.get_application_table(kind)
 
+
             #Get the argument kernel space if it already exists
             kernel_space = None
             if (arg_type in self.kernel_spaces):
-                kernel_space = self.kernel_spaces[arg_type]
+                kernel_space = kernel_spaces[arg_type]
             else:
                 #Otherwise, create it from scratch
                 X = get_means_array(arg_type)
                 scaler = get_rescaling(X)
                 kernel_space = GaussianKernelSpace(X, scaler)
-                self.kernel_spaces[arg_type] = kernel_space
+                kernel_spaces[arg_type] = kernel_space
 
             #Get the return space
             ret_space = self.spaces[ret_type]
@@ -158,12 +157,34 @@ class EmbedderState(object):
             func_means = []
             func_covariances = []
             for func_ind in range(len(space.terms)):
+                func_ptr = TermPointer(space, func_ind)
+
                 func_row = table.table[func_ind]
                 #Obtain the tuple X_kernelized, Y, out_inv_covar_mats
                 X_kernelized, Y, out_inv_covar_mats = self.get_func_row_embeddings(kernel_space, ret_type, func_row)
+
+                func_prior_covar = func_space.get_prior_covariance()
+                func_prior_mean = np.zeros(func_space.get_dimension())
+                func_prior_schmear = Schmear(func_space, func_prior_mean, func_prior_covar)
+
+                #Find all applications which yield the func ptr
+                #as a result [this will be used to set the prior]
+                func_origins = self.interpreter_state.get_term_applications_yielding(func_ptr)
+
+                for term_app in func_origins:
+                    higher_order_func_ptr = term_app.func_ptr
+                    higher_order_arg_ptr = term_app.arg_ptr
+                    higher_order_func_schmear = self.get_schmear_from_ptr(higher_order_func_ptr)
+                    higher_order_arg_schmear = self.get_schmear_from_ptr(higher_order_arg_ptr)
+                    prior_contrib = impute_application_schmear(higher_order_func_schmear, 
+                                                               higher_order_arg_schmear, func_space)
+
+                    #Update the prior with the estimated applications from that
+                    func_prior_schmear = func_prior_schmear.combine_fuse(prior_contrib)
+
                 #Obtain the prior mean and the prior covariance for the function
-                prior_func_mean = self.get_means_array(kind)[func_ind]
-                prior_func_covariance = self.get_covariances_array(kind)[func_ind]
+                prior_func_mean = func_prior_schmear.mean
+                prior_func_covariance = func_prior_schmear.covar_mat
 
                 _, k = X_kernelized.shape 
                 _, t = Y.shape
